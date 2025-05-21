@@ -1,20 +1,26 @@
-FROM dorowu/ubuntu-desktop-lxde-vnc
+FROM ubuntu:20.04
 
-USER root
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Clean any broken sources
-RUN rm -f /etc/apt/sources.list.d/google-chrome.list || true
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    firefox \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    net-tools \
+    wget \
+    xterm \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install a lightweight browser (Midori)
-RUN apt-get update && \
-    apt-get install -y midori && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Create a script to launch Firefox in Xvfb and serve via VNC
+RUN echo '#!/bin/bash\n\
+Xvfb :0 -screen 0 1024x768x16 &\n\
+export DISPLAY=:0\n\
+fluxbox &\n\
+firefox &\n\
+x11vnc -display :0 -nopw -forever -shared -rfbport 5900' > /start.sh && chmod +x /start.sh
 
-# Launch Midori on boot
-RUN echo '#!/bin/bash\n/startup.sh &\nsleep 3\nmidori &' > /usr/local/bin/start-midori && \
-    chmod +x /usr/local/bin/start-midori
+EXPOSE 5900
 
-EXPOSE 80
-
-CMD ["/usr/local/bin/start-midori"]
+CMD ["/start.sh"]
