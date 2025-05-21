@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: firefox-browser
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    ports:
+      - 80
