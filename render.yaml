@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: chromium-rdp
+    name: chromium-vnc
     env: docker
     dockerfilePath: ./Dockerfile
     plan: free
