@@ -1,8 +1,8 @@
 services:
   - type: web
-    name: chromium-browser
+    name: chromium-rdp
     env: docker
-    image: jlesage/chromium-browser
+    dockerfilePath: ./Dockerfile
     plan: free
     ports:
-      - 5800
+      - 80
