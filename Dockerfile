@@ -2,24 +2,19 @@ FROM dorowu/ubuntu-desktop-lxde-vnc
 
 USER root
 
-# Remove broken Chrome repo (safety)
+# Clean any broken sources
 RUN rm -f /etc/apt/sources.list.d/google-chrome.list || true
 
-# Install Firefox and dependencies
+# Install a lightweight browser (Midori)
 RUN apt-get update && \
-    apt-get install -y firefox dbus-x11 && \
+    apt-get install -y midori && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set environment variables to disable hardware acceleration
-ENV MOZ_DISABLE_RDD_SANDBOX=1
-ENV MOZ_ENABLE_WAYLAND=0
-
-# Optional: Create a wrapper script to launch Firefox safely
-RUN echo '#!/bin/bash\nfirefox --no-sandbox --safe-mode &' > /usr/local/bin/firefox-launch && \
-    chmod +x /usr/local/bin/firefox-launch
+# Launch Midori on boot
+RUN echo '#!/bin/bash\n/startup.sh &\nsleep 3\nmidori &' > /usr/local/bin/start-midori && \
+    chmod +x /usr/local/bin/start-midori
 
 EXPOSE 80
 
-# Start the desktop and launch Firefox
-CMD ["/bin/bash", "-c", "/startup.sh && firefox-launch"]
+CMD ["/usr/local/bin/start-midori"]
