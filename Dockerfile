@@ -1,28 +1,31 @@
-FROM ubuntu:20.04
+# Base image
+FROM debian:bullseye-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install required packages
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    chromium-browser \
-    x11vnc \
+    chromium \
+    fonts-liberation \
+    x11-utils \
     xvfb \
-    git \
-    supervisor \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
     wget \
-    python3 \
-    python3-pip \
     curl \
-    net-tools \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    unzip \
+    --no-install-recommends && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install noVNC and websockify
-RUN git clone https://github.com/novnc/noVNC /opt/novnc && \
-    git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify
+# Create user to avoid running as root
+RUN useradd -m chromeuser
+USER chromeuser
+WORKDIR /home/chromeuser
 
-# Copy supervisor config
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Optional: expose a port if you plan to use remote debugging
+EXPOSE 9222
 
-EXPOSE 80
-
-CMD ["/usr/bin/supervisord"]
+# Entry point: Run Chromium in headless mode using XVFB
+CMD ["sh", "-c", "xvfb-run -a chromium --no-sandbox --disable-gpu --disable-software-rasterizer --headless --disable-dev-shm-usage --remote-debugging-port=9222 https://example.com"]
