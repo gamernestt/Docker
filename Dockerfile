@@ -1,12 +1,13 @@
-# Base image
+# Use a slim Debian base image
 FROM debian:bullseye-slim
 
-# Install dependencies
+# Install dependencies including xauth
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
     x11-utils \
     xvfb \
+    xauth \
     libnss3 \
     libxss1 \
     libasound2 \
@@ -19,13 +20,13 @@ RUN apt-get update && apt-get install -y \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create user to avoid running as root
+# Create a non-root user
 RUN useradd -m chromeuser
 USER chromeuser
 WORKDIR /home/chromeuser
 
-# Optional: expose a port if you plan to use remote debugging
+# Optional: expose a port if you want remote debugging
 EXPOSE 9222
 
-# Entry point: Run Chromium in headless mode using XVFB
+# Run Chromium headless with virtual framebuffer
 CMD ["sh", "-c", "xvfb-run -a chromium --no-sandbox --disable-gpu --disable-software-rasterizer --headless --disable-dev-shm-usage --remote-debugging-port=9222 https://example.com"]
