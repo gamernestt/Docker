@@ -1,32 +1,29 @@
-# Use a slim Debian base image
-FROM debian:bullseye-slim
+FROM ubuntu:22.04
 
-# Install dependencies including xauth
-RUN apt-get update && apt-get install -y \
-    chromium \
-    fonts-liberation \
-    x11-utils \
-    xvfb \
-    xauth \
-    libnss3 \
-    libxss1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    wget \
-    curl \
-    unzip \
-    --no-install-recommends && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Create a non-root user
-RUN useradd -m chromeuser
-USER chromeuser
-WORKDIR /home/chromeuser
+# Install desktop, VNC server, and noVNC
+RUN apt update && apt install -y \
+    xfce4 xfce4-goodies \
+    tigervnc-standalone-server \
+    novnc websockify \
+    xterm wget curl net-tools \
+    python3 python3-websockify
 
-# Optional: expose a port if you want remote debugging
-EXPOSE 9222
+# Create user
+RUN useradd -m ubuntu && \
+    echo '#!/bin/sh\nstartxfce4 &' > /home/ubuntu/.vnc/xstartup && \
+    chmod +x /home/ubuntu/.vnc/xstartup && \
+    chown -R ubuntu:ubuntu /home/ubuntu
 
-# Run Chromium headless with virtual framebuffer
-CMD ["sh", "-c", "xvfb-run -a chromium --no-sandbox --disable-gpu --disable-software-rasterizer --headless --disable-dev-shm-usage --remote-debugging-port=9222 https://example.com"]
+# Set up noVNC
+RUN mkdir -p /opt/novnc/utils/websockify && \
+    ln -s /usr/share/novnc /opt/novnc && \
+    ln -s /usr/share/novnc/utils/websockify /opt/novnc/utils/websockify
+
+# Expose port for noVNC
+EXPOSE 6080
+
+# Startup script: starts VNC server and noVNC without password
+CMD su - ubuntu -c "vncserver :1 -geometry 1280x720 -SecurityTypes None && \
+    /opt/novnc/utils/novnc_proxy --vnc localhost:5901 --listen 6080"
