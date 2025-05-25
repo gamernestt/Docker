@@ -2,28 +2,36 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install desktop, VNC server, and noVNC
+# Install required packages
 RUN apt update && apt install -y \
     xfce4 xfce4-goodies \
     tigervnc-standalone-server \
     novnc websockify \
     xterm wget curl net-tools \
-    python3 python3-websockify
+    firefox \
+    python3 python3-websockify \
+    sudo
 
-# Create user
-RUN useradd -m ubuntu && \
-    echo '#!/bin/sh\nstartxfce4 &' > /home/ubuntu/.vnc/xstartup && \
-    chmod +x /home/ubuntu/.vnc/xstartup && \
-    chown -R ubuntu:ubuntu /home/ubuntu
+# Create non-root user
+RUN useradd -m ubuntu && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Set up noVNC
+# Set up VNC xstartup script as ubuntu user
+USER ubuntu
+RUN mkdir -p /home/ubuntu/.vnc && \
+    echo "#!/bin/sh\nxrdb \$HOME/.Xresources\nstartxfce4 &" > /home/ubuntu/.vnc/xstartup && \
+    chmod +x /home/ubuntu/.vnc/xstartup
+
+USER root
+
+# Set up noVNC symlinks
 RUN mkdir -p /opt/novnc/utils/websockify && \
     ln -s /usr/share/novnc /opt/novnc && \
     ln -s /usr/share/novnc/utils/websockify /opt/novnc/utils/websockify
 
-# Expose port for noVNC
+# Expose noVNC port
 EXPOSE 6080
 
-# Startup script: starts VNC server and noVNC without password
-CMD su - ubuntu -c "vncserver :1 -geometry 1280x720 -SecurityTypes None && \
+# Start VNC and noVNC (no password)
+CMD su - ubuntu -c "\
+    vncserver :1 -geometry 1280x720 -SecurityTypes None && \
     /opt/novnc/utils/novnc_proxy --vnc localhost:5901 --listen 6080"
