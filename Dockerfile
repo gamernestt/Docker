@@ -1,37 +1,38 @@
-FROM ubuntu:22.04
+# Use Ubuntu 24.04 as the base image
+FROM ubuntu:24.04
 
+# Set environment variables to avoid user interaction during installation
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
 
-# Install required packages
-RUN apt update && apt install -y \
+# Update package list and install necessary packages
+RUN apt-get update && apt-get install -y \
     xfce4 xfce4-goodies \
-    tigervnc-standalone-server \
-    novnc websockify \
-    xterm wget curl net-tools \
+    xrdp \
+    tightvncserver \
+    novnc \
+    websockify \
     firefox \
-    python3 python3-websockify \
-    sudo
+    net-tools \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN useradd -m ubuntu && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# Configure xrdp
+RUN echo "xfce4-session" > /etc/skel/.xsession \
+    && sed -i '/^port=/c\port=3389' /etc/xrdp/xrdp.ini \
+    && sed -i '/^use_vsock=/c\use_vsock=false' /etc/xrdp/xrdp.ini
 
-# Set up VNC xstartup script as ubuntu user
-USER ubuntu
-RUN mkdir -p /home/ubuntu/.vnc && \
-    echo "#!/bin/sh\nxrdb \$HOME/.Xresources\nstartxfce4 &" > /home/ubuntu/.vnc/xstartup && \
-    chmod +x /home/ubuntu/.vnc/xstartup
+# Set up VNC without password
+RUN mkdir -p /root/.vnc \
+    && touch /root/.vnc/passwd \
+    && chmod 600 /root/.vnc/passwd
 
-USER root
+# Expose ports for RDP (3389) and noVNC (6080)
+EXPOSE 3389 6080
 
-# Set up noVNC symlinks
-RUN mkdir -p /opt/novnc/utils/websockify && \
-    ln -s /usr/share/novnc /opt/novnc && \
-    ln -s /usr/share/novnc/utils/websockify /opt/novnc/utils/websockify
+# Copy startup script
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
-# Expose noVNC port
-EXPOSE 6080
-
-# Start VNC and noVNC (no password)
-CMD su - ubuntu -c "\
-    vncserver :1 -geometry 1280x720 -SecurityTypes None && \
-    /opt/novnc/utils/novnc_proxy --vnc localhost:5901 --listen 6080"
+# Start services
+CMD ["/start.sh"]
