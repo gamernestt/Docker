@@ -1,38 +1,67 @@
-# Use Ubuntu 24.04 as the base image
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
-# Set environment variables to avoid user interaction during installation
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
+ENV USER=ubuntu
+ENV PASSWORD=
+ENV VNC_PORT=5900
+ENV NOVNC_PORT=6080
+ENV DISPLAY=:1
+ENV TZ=Etc/UTC
 
-# Update package list and install necessary packages
-RUN apt-get update && apt-get install -y \
-    xfce4 xfce4-goodies \
-    xrdp \
-    tightvncserver \
+# Install required packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xfce4 \
+    xfce4-goodies \
+    x11vnc \
+    xvfb \
     novnc \
     websockify \
-    firefox \
+    supervisor \
     net-tools \
+    openssh-server \
+    xrdp \
+    dbus-x11 \
+    firefox \
+    tigervnc-standalone-server \
+    tigervnc-common \
+    sudo \
+    wget \
+    curl \
+    unzip \
+    python3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a user with passwordless sudo
+RUN useradd -m -s /bin/bash $USER \
+    && echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && echo "$USER:$PASSWORD" | chpasswd
+
+# Set up noVNC
+RUN mkdir -p /opt/novnc \
+    && wget -qO- https://github.com/novnc/noVNC/archive/refs/heads/master.tar.gz | tar xz --strip 1 -C /opt/novnc \
+    && wget -qO- https://github.com/novnc/websockify/archive/refs/heads/master.tar.gz | tar xz --strip 1 -C /opt/novnc/utils/websockify \
+    && ln -s /opt/novnc/vnc_lite.html /opt/novnc/index.html
+
+# Configure XFCE and VNC
+RUN mkdir -p /home/$USER/.vnc \
+    && echo "#!/bin/sh" > /home/$USER/.vnc/xstartup \
+    && echo "unset SESSION_MANAGER" >> /home/$USER/.vnc/xstartup \
+    && echo "unset DBUS_SESSION_BUS_ADDRESS" >> /home/$USER/.vnc/xstartup \
+    && echo "exec startxfce4" >> /home/$USER/.vnc/xstartup \
+    && chmod +x /home/$USER/.vnc/xstartup \
+    && chown -R $USER:$USER /home/$USER/.vnc
+
 # Configure xrdp
-RUN echo "xfce4-session" > /etc/skel/.xsession \
-    && sed -i '/^port=/c\port=3389' /etc/xrdp/xrdp.ini \
-    && sed -i '/^use_vsock=/c\use_vsock=false' /etc/xrdp/xrdp.ini
+RUN sed -i 's/port=3389/port=3390/g' /etc/xrdp/xrdp.ini \
+    && echo "xfce4-session" > /home/$USER/.xsession \
+    && chown $USER:$USER /home/$USER/.xsession
 
-# Set up VNC without password
-RUN mkdir -p /root/.vnc \
-    && touch /root/.vnc/passwd \
-    && chmod 600 /root/.vnc/passwd
+# Set up supervisor
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Expose ports for RDP (3389) and noVNC (6080)
-EXPOSE 3389 6080
+# Expose ports
+EXPOSE $NOVNC_PORT $VNC_PORT 3390
 
-# Copy startup script
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-# Start services
-CMD ["/start.sh"]
+# Start the container
+CMD ["/usr/bin/supervisord"]
